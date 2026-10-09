@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GPU Playground</title>
+    <link rel="stylesheet" href="shared/style.css" />
+    <style>
+      body { overflow-y: auto; }
+      .page {
+        max-width: 980px;
+        margin: 0 auto;
+        padding-inline: 20px;
+        padding-block: 48px 64px;
+        display: flex;
+        flex-direction: column;
+        gap: 36px;
+      }
+      header { display: flex; flex-direction: column; gap: 10px; }
+      header h1 { margin: 0; font-size: 36px; line-height: 1.1; }
+      header p { margin: 0; max-width: 64ch; color: var(--muted); font-size: 15px; }
+      h2 { margin: 0; font-size: 18px; }
+
+      .demos { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+      .demo {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 18px;
+        background: var(--panel-solid);
+        border: 1px solid var(--line);
+        border-top: 3px solid var(--c);
+        border-radius: 12px;
+        text-decoration: none;
+      }
+      .demo:hover { border-color: var(--c); }
+      .demo .num { font: 600 12px var(--font-mono); color: var(--c); }
+      .demo h3 { margin: 0; font-size: 18px; color: var(--c); }
+      .demo p { margin: 0; color: var(--muted); font-size: 13px; }
+
+      /* Mini pipeline: where each frame's work happens */
+      .flow { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 0; padding: 0; list-style: none; }
+      .flow li {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 6px 10px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.04);
+        font-size: 13px;
+      }
+      .flow b { font-size: 10px; letter-spacing: 0.1em; align-self: center; }
+      .flow .cpu b { color: var(--cpu); }
+      .flow .bus b { color: var(--bus); }
+      .flow .gpu b { color: var(--gpu); }
+      .flow .heavy { outline: 1px solid var(--bad); }
+
+      .steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; color: var(--muted); }
+      .steps strong { color: var(--fg); }
+
+      .results { display: flex; flex-direction: column; gap: 14px; }
+      .results-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+      .results-head p { margin: 0; color: var(--muted); font-size: 13px; }
+      .clear {
+        font: 500 13px var(--font-ui);
+        color: var(--muted);
+        background: none;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 4px 10px;
+        cursor: pointer;
+      }
+      .chart { display: flex; flex-direction: column; gap: 14px; }
+      .row { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 12px; align-items: center; }
+      .row-label { font: 600 13px var(--font-mono); color: var(--muted); }
+      .bars { display: flex; flex-direction: column; gap: 4px; }
+      .bar { display: grid; grid-template-columns: minmax(0, 1fr) 64px; gap: 8px; align-items: center; }
+      .bar-track { height: 12px; border-radius: 3px; background: rgba(255, 255, 255, 0.05); overflow: hidden; }
+      .bar-fill { height: 100%; border-radius: 3px; background: var(--c); }
+      .bar-value { font: 12px var(--font-mono); color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+      .empty { color: var(--muted); font-size: 13px; padding: 16px; border: 1px dashed var(--line); border-radius: 10px; }
+      .key { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+      .key span { display: inline-flex; gap: 6px; align-items: center; }
+      .key i { width: 10px; height: 10px; border-radius: 2px; background: var(--c); display: inline-block; }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header>
+        <span class="eyebrow">Same particles, four engines</span>
+        <h1>GPU Playground</h1>
+        <p>
+          Each demo runs the exact same simulation: up to 16 million particles pulled towards your
+          mouse. Only one thing changes: where the work happens (and, for 2a and 2b, which language
+          the WebAssembly was written in). Watch the frame rate and the bar at the bottom of each demo.
+        </p>
+      </header>
+
+      <section class="demos">
+        <a class="demo" href="1-javascript/" style="--c: var(--cpu)">
+          <span class="num">Demo 1</span>
+          <h3>Plain JavaScript</h3>
+          <p>A JS loop moves each particle on the CPU, one after another, then copies the positions to the GPU to draw.</p>
+          <ul class="flow">
+            <li class="cpu heavy"><span>Move particles (JS loop)</span><b>CPU</b></li>
+            <li class="bus"><span>Copy positions</span><b>CPU → GPU</b></li>
+            <li class="gpu"><span>Draw points</span><b>GPU</b></li>
+          </ul>
+        </a>
+
+        <a class="demo" href="2-wasm/" style="--c: var(--wasm)">
+          <span class="num">Demo 2a</span>
+          <h3>WebAssembly: AssemblyScript</h3>
+          <p>The same loop in AssemblyScript (TypeScript-like), compiled to WebAssembly, 4 particles per instruction. Much faster, but still one CPU core.</p>
+          <ul class="flow">
+            <li class="cpu"><span>Move particles (WASM + SIMD)</span><b>CPU</b></li>
+            <li class="bus"><span>Copy positions</span><b>CPU → GPU</b></li>
+            <li class="gpu"><span>Draw points</span><b>GPU</b></li>
+          </ul>
+        </a>
+
+        <a class="demo" href="2-wasm-rust/" style="--c: var(--rust)">
+          <span class="num">Demo 2b</span>
+          <h3>WebAssembly: Rust</h3>
+          <p>The same loop in Rust, compiled to WebAssembly with the same SIMD trick. Compare it with 2a: same idea, different language.</p>
+          <ul class="flow">
+            <li class="cpu"><span>Move particles (WASM + SIMD)</span><b>CPU</b></li>
+            <li class="bus"><span>Copy positions</span><b>CPU → GPU</b></li>
+            <li class="gpu"><span>Draw points</span><b>GPU</b></li>
+          </ul>
+        </a>
+
+        <a class="demo" href="3-webgpu/" style="--c: var(--gpu)">
+          <span class="num">Demo 3</span>
+          <h3>WebGPU compute</h3>
+          <p>The particles live on the GPU. JS sends two commands; thousands of GPU threads move every particle at once.</p>
+          <ul class="flow">
+            <li class="cpu"><span>Send 2 commands</span><b>CPU</b></li>
+            <li class="gpu"><span>Move particles (compute shader)</span><b>GPU</b></li>
+            <li class="gpu"><span>Draw from the same buffer</span><b>GPU</b></li>
+          </ul>
+        </a>
+      </section>
+
+      <section>
+        <h2>Try this</h2>
+        <ol class="steps">
+          <li>Open each demo at <strong>1M, Light</strong>. All four should hold your screen's full frame rate.</li>
+          <li>Switch to <strong>4M</strong>. JavaScript drops frames (its CPU bar goes red); WebAssembly and WebGPU don't. The language alone made the CPU work about 7× faster.</li>
+          <li>Switch to <strong>Heavy</strong> (16× the maths per particle). JavaScript crawls, WebAssembly drops frames, WebGPU stays smooth: it runs the maths on thousands of GPU threads at once.</li>
+          <li>Try <strong>16M, Heavy</strong>. Only WebGPU stays usable.</li>
+          <li>Compare <strong>2a and 2b</strong> in Heavy mode: Rust's "Move particles" time is lower than AssemblyScript's, though both run the same SIMD maths.</li>
+          <li>Come back here: the chart below compares the frame rates you got.</li>
+        </ol>
+      </section>
+
+      <section class="results">
+        <div class="results-head">
+          <h2>Your results</h2>
+          <p>Frames per second each demo reached in this browser. Higher is better; your screen's refresh rate is the ceiling. Above 1M, every demo still simulates every particle but draws only 1M of them, so drawing doesn't become the bottleneck.</p>
+          <button class="clear" type="button" id="clear">Clear results</button>
+        </div>
+        <div class="key">
+          <span style="--c: var(--cpu)"><i></i>JavaScript</span>
+          <span style="--c: var(--wasm)"><i></i>WASM: AssemblyScript</span>
+          <span style="--c: var(--rust)"><i></i>WASM: Rust</span>
+          <span style="--c: var(--gpu)"><i></i>WebGPU</span>
+        </div>
+        <div class="chart" id="chart"></div>
+      </section>
+    </main>
+
+    <script type="module">
+      import { COUNTS, clearResults, formatCount, readResults, resultKey } from './shared/ui.js';
+
+      const DEMOS = [
+        ['js', 'JavaScript', 'var(--cpu)'],
+        ['wasm', 'WASM: AssemblyScript', 'var(--wasm)'],
+        ['rust', 'WASM: Rust', 'var(--rust)'],
+        ['webgpu', 'WebGPU', 'var(--gpu)'],
+      ];
+      const chart = document.getElementById('chart');
+
+      function render() {
+        const results = readResults();
+        // One row per particle count and workload that any demo has a result for
+        const rows = ['light', 'heavy']
+          .flatMap((work) => COUNTS.map((n) => ({ n, work, id: resultKey(n, work) })))
+          .filter(({ id }) => DEMOS.some(([key]) => results[key]?.[id]));
+        chart.replaceChildren();
+
+        if (!rows.length) {
+          const empty = document.createElement('p');
+          empty.className = 'empty';
+          empty.textContent = 'No results yet. Open a demo and let it run for a couple of seconds at each particle count.';
+          chart.append(empty);
+          return;
+        }
+
+        const max = Math.max(60, ...DEMOS.flatMap(([key]) => Object.values(results[key] ?? {})));
+        for (const { n, work, id } of rows) {
+          const row = document.createElement('div');
+          row.className = 'row';
+          row.innerHTML = `<span class="row-label">${formatCount(n)}${work === 'heavy' ? '<br>heavy' : ''}</span><div class="bars"></div>`;
+          const bars = row.querySelector('.bars');
+          for (const [key, , color] of DEMOS) {
+            const fps = results[key]?.[id];
+            const bar = document.createElement('div');
+            bar.className = 'bar';
+            bar.style.setProperty('--c', color);
+            bar.innerHTML = `<div class="bar-track"><div class="bar-fill" style="width:${fps ? (fps / max) * 100 : 0}%"></div></div><span class="bar-value">${fps ? `${fps} fps` : 'not run'}</span>`;
+            bars.append(bar);
+          }
+          chart.append(row);
+        }
+      }
+
+      document.getElementById('clear').addEventListener('click', () => {
+        clearResults();
+        render();
+      });
+      window.addEventListener('pageshow', render);
+      render();
+    </script>
+  </body>
+</html>

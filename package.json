@@ -1,0 +1,14 @@
+{
+  "name": "gpu-playground",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "npm run build:as && npm run build:rust",
+    "build:as": "asc 2-wasm/assembly/index.ts --outFile 2-wasm/build/sim.wasm --optimize --runtime stub --noAssert --enable simd",
+    "build:rust": "cargo build --manifest-path 2-wasm-rust/sim/Cargo.toml --release --target wasm32-unknown-unknown && cp 2-wasm-rust/sim/target/wasm32-unknown-unknown/release/sim.wasm 2-wasm-rust/build/sim.wasm",
+    "start": "python3 -m http.server 5173 --bind 127.0.0.1"
+  },
+  "devDependencies": {
+    "assemblyscript": "^0.28.20"
+  }
+}
